@@ -1,6 +1,6 @@
 module ReferringExpressions
 
-using PyCall, JSON
+using PyCall, JSON, Iterators
 @pyimport cPickle as pickle
 
 struct RefExpData
@@ -8,7 +8,6 @@ struct RefExpData
     datadir
     dataset
     datasplit
-    data
 
     # storage
     imgdir
@@ -40,7 +39,6 @@ struct RefExpData
         data["images"] = instances["images"]
         data["annotations"] = instances["annotations"]
         data["categories"] = instances["categories"]
-
 
         for ann in data["annotations"]
             id, iid = ann["id"], ann["image_id"]
@@ -76,11 +74,48 @@ struct RefExpData
             end
         end
 
-        return new(datadir,dataset,datasplit,data,imgdir,refs,annotations,
+        return new(datadir,dataset,datasplit,imgdir,refs,annotations,
                    images,categories,sentences,img2ref,img2ann,ref2ann,
                    ann2ref,cat2ref,sent2ref,sent2tok)
     end
 end
+export RefExpData
+
+# load methods
+for obj in (:refs, :annotations, :images, :categories)
+    fun = Symbol(:load_, obj)
+    @eval begin
+        $fun{T<:Int}(d::RefExpData, id::T) = [d.$(obj)[id]]
+        $fun{T<:Array}(d::RefExpData, ids::T) = map(id->d.$(obj)[id], ids)
+        export $fun
+    end
+end
+
+# filter methods
+function filter_refs_by_split(d::RefExpData, split="")
+    isempty(split) && return d.refs
+    if in(split, ("testA","testB","testC"))
+        refs = filter((k,v) -> in(string(split[end]), v["split"]), d.refs)
+    elseif in(split, ("testAB","testBC","testAC"))
+        refs = filter((k,v) -> v["split"] == split, d.refs)
+    elseif in(split, ("train","valid","test"))
+        refs = filter((k,v) -> startswith(v["split"], split), d.refs)
+    end
+    return refs
+end
+export filter_refs_by_split
+
+_filters = (:category, :ref)
+_arrays = (:refs, :images, :annotations)
+for (_array, _filter) in product(_filters, _arrays)
+    F = Symbol(:filter_, _array, :_by_, _filter)
+    K = Symbol(_filter, "_id"); A = Symbol(K, :s)
+    @eval $F(d::RefExpData, ids) = filter((k,v) -> in(v["$K"], ids) , d.$A)
+    @eval export $F
+end
+
+# get methods
+get_category_ids(d::RefExpData) = keys(d.categories)
 
 # utils
 function _get_image_dir(datadir, dataset)::String
@@ -107,7 +142,5 @@ function _get_instances(datadir, dataset)
     jsonfile = abspath(joinpath(datadir, dataset, "instances.json"))
     return JSON.parsefile(jsonfile)
 end
-
-export RefExpData
 
 end # module
