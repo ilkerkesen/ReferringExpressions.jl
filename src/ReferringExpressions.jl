@@ -2,6 +2,7 @@ module ReferringExpressions
 
 using PyCall, JSON, Iterators
 @pyimport cPickle as pickle
+const DATADIR = Pkg.dir("ReferringExpressions","data")
 
 struct RefExpData
     # inputs
@@ -78,6 +79,8 @@ struct RefExpData
                    images,categories,sentences,img2ref,img2ann,ref2ann,
                    ann2ref,cat2ref,sent2ref,sent2tok)
     end
+
+    RefExpData(dataset, datasplit) = RefExpData(DATADIR, dataset, datasplit)
 end
 export RefExpData
 
@@ -105,17 +108,45 @@ function filter_refs_by_split(d::RefExpData, split="")
 end
 export filter_refs_by_split
 
-_filters = (:category, :ref)
-_arrays = (:refs, :images, :annotations)
-for (_array, _filter) in product(_filters, _arrays)
-    F = Symbol(:filter_, _array, :_by_, _filter)
+_filters = (:categories, :refs)
+_arrays = (:ref, :image, :annotation)
+for (_filter, _array) in product(_filters, _arrays)
+    F = Symbol(:filter_, _array, :s_by_, _filter)
     K = Symbol(_filter, "_id"); A = Symbol(K, :s)
     @eval $F(d::RefExpData, ids) = filter((k,v) -> in(v["$K"], ids) , d.$A)
+    @eval $F(data, ids) = filter((k,v) -> in(v["$K"], ids) , data)
     @eval export $F
 end
 
+filter_refs_by_image(d::RefExpData, ids) = map(i->d.img2ref[i], ids)
+export filter_refs_by_image
+
 # get methods
 get_category_ids(d::RefExpData) = keys(d.categories)
+export get_category_ids
+
+function get_ref_ids(
+    d::RefExpData; image_ids=[], cat_ids=[], ref_ids=[], split="")
+    refs = d.refs
+    for (_array,_filter) in product(_arrays, vcat(_filters..., :image))
+        F = Symbol(:filter_, :ref_by_, _filter); A = Symbol(_arrays, :_ids)
+        @eval refs = $F(refs, $A)
+    end
+    return refs
+end
+export get_ref_ids
+
+function get_annotations_ids(
+    d::RefExpData; image_ids=[], cat_ids=[], ref_ids=[])
+    annotations = d.annotations
+    for (_array,_filter) in product(_arrays, _filters)
+        F = Symbol(:filter_, :annotations_by_, _filter)
+        A = Symbol(_arrays, :_ids)
+        @eval annotations = $F(annotations, $A)
+    end
+    return annotations
+end
+export get_annotations_ids
 
 # utils
 function _get_image_dir(datadir, dataset)::String
