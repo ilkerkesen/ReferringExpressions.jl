@@ -6,7 +6,7 @@
 
 [![codecov.io](http://codecov.io/github/ilkerkesen/ReferringExpressions.jl/coverage.svg?branch=master)](http://codecov.io/github/ilkerkesen/ReferringExpressions.jl?branch=master)
 
-This package is Julia port of [https://github.com/lichengunc/refer](this Python package). First, you need to add and build the package,
+This package is Julia port of [this Python package](https://github.com/lichengunc/refer). First, you need to add and build the package,
 
 ```julia
 julia> Pkg.clone("git@github.com:ilkerkesen/ReferringExpressions.jl.git")
@@ -26,4 +26,4 @@ refexp = RefExpData("refcocog", "google") # testing data haven't been released y
 refexp = RefExpData("refcocog", "umd") # train/val/test split provided by UMD
 ```
 
-You need to download images manually and link them to ```Pkg.dir("ReferringExpressions")```
+You need to download images manually and link them to ```Pkg.dir("ReferringExpressions")```. See [src/ReferringExpressions.jl](src/ReferringExpressions.jl) for much more information about usage.
