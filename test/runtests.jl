@@ -1,5 +1,10 @@
 using ReferringExpressions
 using Base.Test
 
-# write your own tests here
-@test 1 == 2
+@test try
+    refexp = RefExpData("refclef", "unc")
+    true
+catch err
+    println("ERROR: $(err.msg)")
+    catch_stacktrace()
+end
