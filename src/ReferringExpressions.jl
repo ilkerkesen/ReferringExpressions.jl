@@ -96,55 +96,52 @@ end
 
 # filter methods
 function filter_refs_by_split(d::RefExpData, split="")
-    isempty(split) && return d.refs
+    filter_refs_by_split(d.refs, split)
+end
+function filter_refs_by_split(refs, split="")
+    isempty(split) && return refs
     if in(split, ("testA","testB","testC"))
-        refs = filter((k,v) -> in(string(split[end]), v["split"]), d.refs)
+        refs = filter((k,v) -> in(string(split[end]), v["split"]), refs)
     elseif in(split, ("testAB","testBC","testAC"))
-        refs = filter((k,v) -> v["split"] == split, d.refs)
+        refs = filter((k,v) -> v["split"] == split, refs)
     elseif in(split, ("train","valid","test"))
-        refs = filter((k,v) -> startswith(v["split"], split), d.refs)
+        refs = filter((k,v) -> startswith(v["split"], split), refs)
     end
     return refs
 end
 export filter_refs_by_split
 
-_filters = (:categories, :refs)
+_filters = (
+    (:categories, "category_id"), (:refs, "ref_id"), (:images, "image_id"))
 _arrays = (:ref, :image, :annotation)
-for (_filter, _array) in product(_filters, _arrays)
+for ((_filter,_id), _array) in product(_filters, _arrays)
     F = Symbol(:filter_, _array, :s_by_, _filter)
-    K = Symbol(_filter, "_id"); A = Symbol(K, :s)
-    @eval $F(d::RefExpData, ids) = filter((k,v) -> in(v["$K"], ids) , d.$A)
-    @eval $F(data, ids) = filter((k,v) -> in(v["$K"], ids) , data)
+    @eval $F(d::RefExpData, ids) = filter(
+        (k,v) -> in(v[$_id], ids) , d.$_filter)
+    @eval $F(data, ids) = filter((k,v) -> in(v[$_id], ids) , data)
     @eval export $F
 end
-
-filter_refs_by_image(d::RefExpData, ids) = map(i->d.img2ref[i], ids)
-export filter_refs_by_image
 
 # get methods
 get_category_ids(d::RefExpData) = keys(d.categories)
 export get_category_ids
 
 function get_ref_ids(
-    d::RefExpData; image_ids=[], cat_ids=[], ref_ids=[], split="")
+    d::RefExpData; ref_ids=[], cat_ids=[], image_ids=[], split="")
     refs = d.refs
-    for (_array,_filter) in product(_arrays, vcat(_filters..., :image))
-        F = Symbol(:filter_, :ref_by_, _filter); A = Symbol(_arrays, :_ids)
-        @eval refs = $F(refs, $A)
-    end
-    return refs
+    refs = filter_refs_by_refs(refs, ref_ids)
+    refs = filter_refs_by_categories(refs, cat_ids)
+    refs = filter_refs_by_images(refs, image_ids)
+    refs = filter_refs_by_split(refs, split)
 end
 export get_ref_ids
 
 function get_annotations_ids(
-    d::RefExpData; image_ids=[], cat_ids=[], ref_ids=[])
-    annotations = d.annotations
-    for (_array,_filter) in product(_arrays, _filters)
-        F = Symbol(:filter_, :annotations_by_, _filter)
-        A = Symbol(_arrays, :_ids)
-        @eval annotations = $F(annotations, $A)
-    end
-    return annotations
+    d::RefExpData; ref_ids=[], cat_ids=[], image_ids=[])
+    data = d.annotations
+    data = filter_annotations_by_refs(data, ref_ids)
+    data = filter_annotations_by_categories(data, cat_ids)
+    data = filter_annotations_by_images(data, image_ids)
 end
 export get_annotations_ids
 
